@@ -18,12 +18,12 @@
   },
   "fmt": {
     "lineWidth": 80,
-    "exclude": ["dist/"]
+    "exclude": ["dist/", "docs-site/"]
   },
   "lint": {
     "rules": {
       "tags": ["recommended"]
     },
-    "exclude": ["dist/"]
+    "exclude": ["dist/", "docs-site/"]
   }
 }
