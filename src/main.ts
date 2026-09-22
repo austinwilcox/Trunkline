@@ -16,8 +16,8 @@ import { type NavDirection, runNav } from "./cli/commands/nav.ts";
 import { resolveCdChannel } from "./util/cd.ts";
 import { error } from "./util/log.ts";
 import { GitError } from "./git/exec.ts";
-
-const VERSION = "0.1.0";
+import { VERSION } from "./version.ts";
+import { maybeNotifyUpdate } from "./update/check.ts";
 
 const HELP = `tl — Trunkline, a Git worktree manager
 
@@ -81,6 +81,18 @@ async function main(argv: string[]): Promise<number> {
     return cmd.command === "" && !cmd.help ? 1 : 0;
   }
 
+  const code = await dispatch(cmd);
+
+  // After the command, surface an upgrade notice (best-effort, stderr only).
+  // Skipped for machine-readable output so stdout stays clean.
+  if (!cmd.flags.json) {
+    await maybeNotifyUpdate();
+  }
+
+  return code;
+}
+
+async function dispatch(cmd: ReturnType<typeof parse>): Promise<number> {
   switch (cmd.command) {
     case "list":
       return await runList({
