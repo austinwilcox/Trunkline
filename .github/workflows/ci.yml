@@ -1,0 +1,45 @@
+name: CI
+
+# Validate every PR (and pushes to main) so changes can't break functionality.
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: check + lint + fmt + test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The integration tests create real git repositories and commit to them,
+      # so a git identity must be configured on the runner.
+      - name: Configure git identity for tests
+        run: |
+          git config --global user.email "ci@trunkline.test"
+          git config --global user.name "Trunkline CI"
+          git config --global init.defaultBranch main
+
+      - name: Type-check
+        run: deno check src/main.ts
+
+      - name: Lint
+        run: deno lint
+
+      - name: Format check
+        run: deno fmt --check
+
+      - name: Test
+        run: deno test -A
