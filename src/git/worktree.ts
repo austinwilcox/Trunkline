@@ -177,3 +177,30 @@ export async function currentBranch(cwd: string): Promise<string | null> {
   if (!ref) return null;
   return ref.replace(/^refs\/heads\//, "");
 }
+
+/** True if `ancestor` is an ancestor commit of `descendant` (both refs). */
+export async function isAncestor(
+  cwd: string,
+  ancestor: string,
+  descendant: string,
+): Promise<boolean> {
+  const res = await git(
+    ["merge-base", "--is-ancestor", ancestor, descendant],
+    { cwd, check: false },
+  );
+  return res.code === 0;
+}
+
+/** Number of commits `ref` is ahead of `base` (base..ref). */
+export async function commitsAhead(
+  cwd: string,
+  base: string,
+  ref: string,
+): Promise<number> {
+  const res = await git(["rev-list", "--count", `${base}..${ref}`], {
+    cwd,
+    check: false,
+  });
+  const n = Number(res.stdout.trim());
+  return Number.isNaN(n) ? 0 : n;
+}

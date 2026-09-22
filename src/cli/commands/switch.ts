@@ -23,6 +23,7 @@ import {
 } from "../../git/worktree.ts";
 import { resolveWorktreePath } from "../../config/worktree_path.ts";
 import { loadConfig } from "../../config/load.ts";
+import { loadStackState, saveStackState, track } from "../../stack/store.ts";
 import { runLifecycleHooks } from "../../hooks/lifecycle.ts";
 import { type CdChannel, requestCd } from "../../util/cd.ts";
 import { error, info, success, warn } from "../../util/log.ts";
@@ -35,6 +36,8 @@ export interface SwitchOptions {
   executeArgs?: string[];
   noHooks?: boolean;
   yes?: boolean;
+  /** Track the new branch in the stack, based on the current branch. */
+  stack?: boolean;
   cd: CdChannel;
   cwd?: string;
 }
@@ -72,8 +75,14 @@ export async function runSwitch(opts: SwitchOptions): Promise<number> {
   let target = await findWorktreeByBranch(repo.root, branch);
   const creating = !target;
 
+  // In stack mode, a new branch is based on the branch we're currently on
+  // (unless an explicit --base was given).
+  const stackBase = opts.stack
+    ? (opts.base ?? sourceBranch ?? defaultBranch)
+    : opts.base;
+
   if (!target) {
-    const wantCreate = opts.create || opts.base !== undefined;
+    const wantCreate = opts.create || opts.base !== undefined || opts.stack;
     const exists = await branchExists(repo.root, branch);
 
     if (!exists && !wantCreate) {
@@ -89,7 +98,7 @@ export async function runSwitch(opts: SwitchOptions): Promise<number> {
     info(`Creating worktree for ${branch} @ ${path}`);
     await addWorktree(repo.root, branch, path, {
       create: !exists,
-      base: opts.base,
+      base: stackBase,
     });
     target = await findWorktreeByBranch(repo.root, branch);
     if (!target) {
@@ -100,6 +109,14 @@ export async function runSwitch(opts: SwitchOptions): Promise<number> {
       `Created ${exists ? "worktree" : "branch and worktree"} ` +
         `${branch} @ ${target.path}`,
     );
+  }
+
+  // Track the branch in the stack when requested.
+  if (opts.stack && stackBase) {
+    const state = await loadStackState(repo.gitCommonDir);
+    track(state, branch, stackBase);
+    await saveStackState(repo.gitCommonDir, state);
+    info(`Tracking ${branch} with base ${stackBase}`);
   }
 
   // pre-start (blocking) then post-start (background) run only on create,
