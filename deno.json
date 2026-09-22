@@ -18,12 +18,12 @@
   },
   "fmt": {
     "lineWidth": 80,
-    "exclude": ["dist/", "docs-site/"]
+    "exclude": ["dist/", "docs-site/", ".github/"]
   },
   "lint": {
     "rules": {
       "tags": ["recommended"]
     },
-    "exclude": ["dist/", "docs-site/"]
+    "exclude": ["dist/", "docs-site/", ".github/"]
   }
 }
