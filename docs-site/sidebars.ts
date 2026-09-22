@@ -17,6 +17,8 @@ const sidebars: SidebarsConfig = {
         'commands/hook',
         'commands/config',
         'commands/init',
+        'commands/stack',
+        'commands/navigate',
       ],
     },
     'configuration',
