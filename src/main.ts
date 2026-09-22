@@ -11,6 +11,8 @@ import { runRemove } from "./cli/commands/remove.ts";
 import { runConfig } from "./cli/commands/config.ts";
 import { runHookCommand } from "./cli/commands/hook.ts";
 import { runInit } from "./cli/commands/init.ts";
+import { runStack } from "./cli/commands/stack.ts";
+import { type NavDirection, runNav } from "./cli/commands/nav.ts";
 import { resolveCdChannel } from "./util/cd.ts";
 import { error } from "./util/log.ts";
 import { GitError } from "./git/exec.ts";
@@ -30,6 +32,12 @@ COMMANDS:
     config      Manage config, approvals, shell integration
     init        Scaffold .config/tl.toml
 
+  Stacks (see docs/STACKS.md):
+    stack       Show/track/untrack stacked branches
+    up / down   Move to an upstack / downstack worktree
+    top/bottom  Move to the top / bottom of the current stack
+    trunk       Move to the trunk worktree
+
 OPTIONS:
     -h, --help       Show this help
     -V, --version    Show version
@@ -40,6 +48,7 @@ OPTIONS:
         -c, --create        Create branch + worktree if missing
             --base <ref>    Base ref for the new branch (implies --create)
         -x, --execute <cmd> Run <cmd> in the worktree after switching
+            --stack         Track the new branch on top of the current one
             --no-hooks      Skip lifecycle hooks
     remove:
             --force         Remove despite uncommitted changes / unmerged branch
@@ -85,6 +94,7 @@ async function main(argv: string[]): Promise<number> {
         executeArgs: (cmd.flags.forwarded as string[] | undefined) ?? [],
         noHooks: Boolean(cmd.flags["no-hooks"]),
         yes: Boolean(cmd.flags.yes),
+        stack: Boolean(cmd.flags.stack),
         cd,
       });
     }
@@ -119,6 +129,26 @@ async function main(argv: string[]): Promise<number> {
 
     case "init":
       return await runInit({ force: Boolean(cmd.flags.force) });
+
+    case "stack":
+      return await runStack({
+        args: cmd.positionals,
+        base: cmd.flags.base as string | undefined,
+      });
+
+    case "up":
+    case "down":
+    case "top":
+    case "bottom":
+    case "trunk": {
+      const cd = resolveCdChannel(cmd.flags["cd-file"]);
+      const count = cmd.positionals[0] ? Number(cmd.positionals[0]) : 1;
+      return await runNav({
+        direction: cmd.command as NavDirection,
+        count: Number.isNaN(count) ? 1 : count,
+        cd,
+      });
+    }
 
     default:
       error(`Unknown command: '${cmd.command}'. Run 'tl --help'.`);

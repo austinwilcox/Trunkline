@@ -40,6 +40,14 @@ export function logDir(gitCommonDir: string): string {
   return join(gitCommonDir, "tl", "logs");
 }
 
+/**
+ * Per-repo stacked-branch graph, under the git common dir so it is shared
+ * across worktrees and never committed: `<gitCommonDir>/tl/stack.json`.
+ */
+export function stackStatePath(gitCommonDir: string): string {
+  return join(gitCommonDir, "tl", "stack.json");
+}
+
 export function homeDir(): string {
   const home = Deno.env.get("HOME") ?? Deno.env.get("USERPROFILE");
   if (!home) throw new Error("Cannot resolve home directory (HOME unset)");
