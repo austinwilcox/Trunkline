@@ -4,38 +4,31 @@
  */
 
 import type { StackContext } from "./stack.ts";
-import { childrenOf } from "../../stack/graph.ts";
+import { childrenOf, rootBases } from "../../stack/graph.ts";
 import { findWorktreeByBranch } from "../../git/worktree.ts";
 import { commitsAhead } from "../../git/worktree.ts";
 import { getDirtyState } from "../../git/status.ts";
 import { bold, dim, green, yellow } from "../../util/log.ts";
 
 /**
- * Build a tree string for the whole stack that contains the current branch (or
- * all stacks if the current branch isn't tracked).
+ * Build a tree string for all tracked stacks. Renders the trunk first, then any
+ * "orphan roots" — untracked bases that anchor tracked branches whose chain
+ * doesn't reach the trunk through the graph.
  */
 export async function renderStackTree(
   ctx: StackContext,
   cwd: string,
 ): Promise<string> {
   const { state, trunk, branch: current } = ctx;
-
   const lines: string[] = [];
-  // Trunk is the root; its children are the bottom branches of each stack.
-  lines.push(
-    `${marker(trunk, current, trunk)} ${bold(trunk)} ${dim("(trunk)")}`,
-  );
 
-  const roots = childrenOf(state, trunk);
-  for (let i = 0; i < roots.length; i++) {
-    await renderSubtree(
-      ctx,
-      cwd,
-      roots[i],
-      1,
-      lines,
-      current,
-    );
+  const roots = rootBases(state, trunk);
+  for (const root of roots) {
+    const label = root === trunk ? dim("(trunk)") : dim("(untracked base)");
+    lines.push(`${marker(root, current, trunk)} ${bold(root)} ${label}`);
+    for (const child of childrenOf(state, root)) {
+      await renderSubtree(ctx, cwd, child, 1, lines, current);
+    }
   }
 
   if (Object.keys(state.branches).length === 0) {

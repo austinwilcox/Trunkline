@@ -12,6 +12,7 @@ import {
   bottomOf,
   childrenOf,
   downstackOf,
+  rootBases,
   stackOf,
   topsOf,
   upstackOf,
@@ -95,4 +96,26 @@ Deno.test("validateState rejects malformed input", () => {
 
   const ok = validateState({ branches: { x: { base: "main" } } }, "test");
   assertEquals(ok.branches.x.base, "main");
+});
+
+Deno.test("rootBases lists trunk first, then orphan roots", () => {
+  // main ← api ← ui  (connected to trunk)
+  // stacks ← docs    (docs tracked onto untracked 'stacks' → orphan root)
+  const s = emptyState();
+  track(s, "api", "main");
+  track(s, "ui", "api");
+  track(s, "docs", "stacks");
+
+  const roots = rootBases(s, "main");
+  assertEquals(roots[0], "main"); // trunk always first
+  assertEquals(roots.includes("stacks"), true);
+  // tracked branches are never roots
+  assertEquals(roots.includes("api"), false);
+  assertEquals(roots.includes("ui"), false);
+  // the orphan root's children are reachable for rendering
+  assertEquals(childrenOf(s, "stacks"), ["docs"]);
+});
+
+Deno.test("rootBases returns just trunk when everything connects", () => {
+  assertEquals(rootBases(sampleState(), "main"), ["main"]);
 });

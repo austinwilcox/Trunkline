@@ -25,6 +25,27 @@ export function childrenOf(state: StackState, branch: string): string[] {
 }
 
 /**
+ * All base names that are not themselves tracked branches — i.e. the roots that
+ * anchor one or more tracked branches. The trunk is normally one of these; any
+ * *other* value is an "orphan root" (a branch was tracked onto a base that
+ * isn't tracked, so its stack doesn't connect to the trunk through the graph).
+ *
+ * Returned sorted, with `trunk` first when present so the trunk always renders
+ * at the top.
+ */
+export function rootBases(state: StackState, trunk: string): string[] {
+  const tracked = new Set(Object.keys(state.branches));
+  const roots = new Set<string>();
+  for (const node of Object.values(state.branches)) {
+    if (!tracked.has(node.base)) roots.add(node.base);
+  }
+  const list = [...roots].sort();
+  // Ensure trunk sorts first (and is present even if nothing is tracked onto it
+  // directly — callers still want to show it as the tree root).
+  return [trunk, ...list.filter((r) => r !== trunk)];
+}
+
+/**
  * Ancestors from `branch` toward the trunk, nearest first, excluding `branch`.
  * Stops at the trunk (which is not a tracked node). Guards against cycles.
  */
