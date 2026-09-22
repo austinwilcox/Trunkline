@@ -5,11 +5,15 @@
 import { detectMainBranch, getRepoInfo } from "../../git/repo.ts";
 import { listWorktrees, type Worktree } from "../../git/worktree.ts";
 import { getWorktreeStatus, type WorktreeStatus } from "../../git/status.ts";
+import { loadStackState, type StackState } from "../../stack/store.ts";
+import { downstackOf } from "../../stack/graph.ts";
 import { bold, dim, green, yellow } from "../../util/log.ts";
 
 export interface ListOptions {
   cwd?: string;
   json?: boolean;
+  /** Indent branches by their stack depth (using the stack graph). */
+  stack?: boolean;
 }
 
 interface Row {
@@ -17,6 +21,8 @@ interface Row {
   status: WorktreeStatus;
   isCurrent: boolean;
   isMain: boolean;
+  /** Stack depth for indentation (0 = trunk or untracked). */
+  depth: number;
 }
 
 export async function runList(opts: ListOptions = {}): Promise<number> {
@@ -26,7 +32,10 @@ export async function runList(opts: ListOptions = {}): Promise<number> {
   const worktrees = await listWorktrees(repo.root);
   const currentRoot = repo.root;
 
-  const rows: Row[] = [];
+  // In --stack mode, load the graph to compute per-branch depth + ordering.
+  const state = opts.stack ? await loadStackState(repo.gitCommonDir) : null;
+
+  let rows: Row[] = [];
   for (const wt of worktrees) {
     if (wt.bare) continue;
     const status = await getWorktreeStatus(wt.path, wt.branch, mainBranch);
@@ -35,22 +44,67 @@ export async function runList(opts: ListOptions = {}): Promise<number> {
       status,
       isCurrent: wt.path === currentRoot,
       isMain: wt.branch === mainBranch,
+      depth: state ? stackDepth(state, wt.branch, mainBranch) : 0,
     });
   }
+
+  if (state) rows = orderByStack(rows, state, mainBranch);
 
   if (opts.json) {
     console.log(JSON.stringify(rows, null, 2));
     return 0;
   }
 
-  printTable(rows, mainBranch);
+  printTable(rows, mainBranch, Boolean(opts.stack));
   return 0;
+}
+
+/**
+ * Depth of a branch in the stack = number of tracked ancestors between it and
+ * the trunk. The trunk and untracked branches are depth 0.
+ */
+function stackDepth(
+  state: StackState,
+  branch: string | null,
+  trunk: string,
+): number {
+  if (!branch || branch === trunk || !(branch in state.branches)) return 0;
+  // downstackOf includes the trunk at the end; count only tracked ancestors.
+  return downstackOf(state, branch).filter((b) => b in state.branches).length +
+    1;
+}
+
+/**
+ * Order rows so a branch appears after its base: trunk first, then tracked
+ * branches by ascending depth (stable within a depth), then untracked
+ * worktrees. Keeps the flat set intact — only reorders for readability.
+ */
+function orderByStack(
+  rows: Row[],
+  state: StackState,
+  trunk: string,
+): Row[] {
+  const rank = (r: Row): number => {
+    if (r.worktree.branch === trunk) return -1; // trunk first
+    if (r.worktree.branch && r.worktree.branch in state.branches) {
+      return r.depth; // tracked: by depth
+    }
+    return 1000; // untracked worktrees last
+  };
+  return [...rows].sort((a, b) => rank(a) - rank(b));
 }
 
 function marker(row: Row): string {
   if (row.isCurrent) return "@";
   if (row.isMain) return "^";
   return " ";
+}
+
+/** The Branch cell, indented by stack depth when in --stack mode. */
+function branchCell(row: Row, stackMode: boolean): string {
+  const name = row.worktree.branch ?? dim("(detached)");
+  if (!stackMode || row.depth <= 0) return name;
+  return "  ".repeat(row.depth) + name;
 }
 
 function dirtyGlyph(status: WorktreeStatus): string {
@@ -77,7 +131,7 @@ function pushGlyph(status: WorktreeStatus): string {
   return status.unpushed > 0 ? yellow(`⇡${status.unpushed}`) : dim("=");
 }
 
-function printTable(rows: Row[], mainBranch: string): void {
+function printTable(rows: Row[], mainBranch: string, stackMode: boolean): void {
   const header = [
     " ",
     bold("Branch"),
@@ -91,7 +145,7 @@ function printTable(rows: Row[], mainBranch: string): void {
 
   const lines: string[][] = rows.map((row) => [
     marker(row),
-    row.worktree.branch ?? dim("(detached)"),
+    branchCell(row, stackMode),
     dirtyGlyph(row.status),
     vsMainGlyph(row.status),
     pushGlyph(row.status),

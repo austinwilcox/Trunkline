@@ -26,6 +26,7 @@ USAGE:
 
 COMMANDS:
     list        List worktrees with status relative to main   (alias: ls)
+                  --stack indents branches by stack depth; --json for output
     switch      Switch to / create a worktree                 (alias: sw, s)
     remove      Remove a worktree                             (alias: rm)
     hook        Run configured hooks on demand
@@ -82,7 +83,10 @@ async function main(argv: string[]): Promise<number> {
 
   switch (cmd.command) {
     case "list":
-      return await runList({ json: Boolean(cmd.flags.json) });
+      return await runList({
+        json: Boolean(cmd.flags.json),
+        stack: Boolean(cmd.flags.stack),
+      });
 
     case "switch": {
       const cd = resolveCdChannel(cmd.flags["cd-file"]);
