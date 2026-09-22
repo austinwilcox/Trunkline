@@ -1,0 +1,5 @@
+# Compiled binary output
+/dist/
+
+# Trunkline runtime (also lives under .git in real repos)
+.git/tl/
