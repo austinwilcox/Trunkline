@@ -26,6 +26,7 @@ import {
   type Shell,
   SUPPORTED_SHELLS,
 } from "../../shell/integration.ts";
+import { generateCompletion } from "../../shell/completions.ts";
 import { bold, dim, error, info, success } from "../../util/log.ts";
 
 export interface ConfigOptions {
@@ -160,13 +161,14 @@ async function configShell(
 
   if (opts.print) {
     console.log(generateWrapper(shell));
+    console.log(generateCompletion(shell));
     return 0;
   }
 
   const result = await installWrapper(shell, homeDir());
   success(
     `${result.action === "installed" ? "Installed" : "Updated"} ${shell} ` +
-      `integration in ${result.rcFile}`,
+      `integration (cd + completions) in ${result.rcFile}`,
   );
   info(`Restart your shell or run:  source ${result.rcFile}`);
   return 0;

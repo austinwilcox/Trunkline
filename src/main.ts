@@ -13,6 +13,7 @@ import { runHookCommand } from "./cli/commands/hook.ts";
 import { runInit } from "./cli/commands/init.ts";
 import { runStack } from "./cli/commands/stack.ts";
 import { type NavDirection, runNav } from "./cli/commands/nav.ts";
+import { runComplete } from "./cli/complete.ts";
 import { resolveCdChannel } from "./util/cd.ts";
 import { error } from "./util/log.ts";
 import { GitError } from "./git/exec.ts";
@@ -69,6 +70,13 @@ OPTIONS:
 `;
 
 async function main(argv: string[]): Promise<number> {
+  // Hidden completion entrypoint: `tl __complete <words...>`. Handled before
+  // normal parsing since it needs the raw words (including a trailing empty
+  // token) and must never trigger the update check or other side effects.
+  if (argv[0] === "__complete") {
+    return await runComplete({ words: argv.slice(1) });
+  }
+
   const cmd = parse(argv);
 
   if (cmd.version) {

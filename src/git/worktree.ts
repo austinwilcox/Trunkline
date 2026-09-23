@@ -178,6 +178,18 @@ export async function currentBranch(cwd: string): Promise<string | null> {
   return ref.replace(/^refs\/heads\//, "");
 }
 
+/** All local branch names (for completion candidates). */
+export async function listBranches(cwd: string): Promise<string[]> {
+  const res = await git(
+    ["for-each-ref", "--format=%(refname:short)", "refs/heads"],
+    { cwd, check: false },
+  );
+  if (res.code !== 0) return [];
+  return res.stdout.split("\n").map((s) => s.trim()).filter((s) =>
+    s.length > 0
+  );
+}
+
 /** True if `ancestor` is an ancestor commit of `descendant` (both refs). */
 export async function isAncestor(
   cwd: string,
