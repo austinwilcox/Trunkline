@@ -14,6 +14,7 @@ const sidebars: SidebarsConfig = {
         'commands/list',
         'commands/switch',
         'commands/remove',
+        'commands/prune',
         'commands/hook',
         'commands/config',
         'commands/init',

@@ -11,6 +11,7 @@ import { runRemove } from "./cli/commands/remove.ts";
 import { runConfig } from "./cli/commands/config.ts";
 import { runHookCommand } from "./cli/commands/hook.ts";
 import { runInit } from "./cli/commands/init.ts";
+import { runPrune } from "./cli/commands/prune.ts";
 import { runStack } from "./cli/commands/stack.ts";
 import { type NavDirection, runNav } from "./cli/commands/nav.ts";
 import { resolveCdChannel } from "./util/cd.ts";
@@ -29,6 +30,7 @@ COMMANDS:
                   --stack indents branches by stack depth; --json for output
     switch      Switch to / create a worktree                 (alias: sw, s)
     remove      Remove a worktree                             (alias: rm)
+    prune       Remove worktrees whose branch is merged into main
     hook        Run configured hooks on demand
     config      Manage config, approvals, shell integration
     init        Scaffold .config/tl.toml
@@ -55,6 +57,11 @@ OPTIONS:
             --force         Remove despite uncommitted changes / unmerged branch
             --keep-branch   Remove the worktree but keep the branch
             --no-hooks      Skip lifecycle hooks
+    prune:
+            --dry-run       List prunable worktrees without removing
+            --keep-branch   Remove the worktrees but keep the branches
+            --no-hooks      Skip lifecycle hooks
+        -y, --yes           Skip the confirmation prompt
     hook:
             <type> [names]  Hook type (e.g. post-start) + optional name filters
             --foreground    Run a background hook inline
@@ -145,6 +152,17 @@ async function dispatch(cmd: ReturnType<typeof parse>): Promise<number> {
 
     case "init":
       return await runInit({ force: Boolean(cmd.flags.force) });
+
+    case "prune": {
+      const cd = resolveCdChannel(cmd.flags["cd-file"]);
+      return await runPrune({
+        dryRun: Boolean(cmd.flags["dry-run"]),
+        yes: Boolean(cmd.flags.yes),
+        keepBranch: Boolean(cmd.flags["keep-branch"]),
+        noHooks: Boolean(cmd.flags["no-hooks"]),
+        cd,
+      });
+    }
 
     case "stack":
       return await runStack({
