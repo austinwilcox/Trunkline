@@ -44,8 +44,9 @@ tl config shell install --shell zsh
 tl config shell install --print # print the wrapper without installing
 ```
 
-Then restart your shell (or `source` your rc file). See
-[`tl config`](commands/config) for details.
+Then restart your shell (or `source` your rc file). This also enables
+**tab completion** for subcommands, flags, and branch names (e.g.
+`tl switch DEV<Tab>`). See [`tl config`](commands/config) for details.
 
 ## Development tasks
 
