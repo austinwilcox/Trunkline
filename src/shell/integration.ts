@@ -8,6 +8,11 @@
  */
 
 import { join } from "@std/path";
+import {
+  COMPLETION_BEGIN,
+  COMPLETION_END,
+  generateCompletion,
+} from "./completions.ts";
 
 export type Shell = "bash" | "zsh" | "fish";
 
@@ -98,7 +103,8 @@ export async function installWrapper(
   binaryName = "tl",
 ): Promise<InstallResult> {
   const rcFile = rcFileFor(shell, home);
-  const snippet = generateWrapper(shell, binaryName);
+  const wrapper = generateWrapper(shell, binaryName);
+  const completion = generateCompletion(shell, binaryName);
 
   let existing = "";
   try {
@@ -107,28 +113,47 @@ export async function installWrapper(
     if (!(err instanceof Deno.errors.NotFound)) throw err;
   }
 
-  const { text, action } = mergeSnippet(existing, snippet);
+  // Merge the cd-wrapper block, then the completion block (idempotent).
+  const step1 = mergeBlock(existing, wrapper, BEGIN, END);
+  const step2 = mergeBlock(
+    step1.text,
+    completion,
+    COMPLETION_BEGIN,
+    COMPLETION_END,
+  );
 
-  // Ensure parent dir exists (e.g. ~/.config/fish).
   const dir = rcFile.slice(0, rcFile.lastIndexOf("/"));
   await Deno.mkdir(dir, { recursive: true });
-  await Deno.writeTextFile(rcFile, text);
+  await Deno.writeTextFile(rcFile, step2.text);
 
-  return { rcFile, action, snippet };
+  // "updated" if either block already existed.
+  const action = step1.action === "updated" || step2.action === "updated"
+    ? "updated"
+    : "installed";
+  return { rcFile, action, snippet: wrapper + completion };
 }
 
-/** Replace an existing marker block, or append a new one. */
+/** Replace an existing marker block, or append a new one (wrapper markers). */
 export function mergeSnippet(
   existing: string,
   snippet: string,
 ): { text: string; action: "installed" | "updated" } {
-  const begin = existing.indexOf(BEGIN);
-  const end = existing.indexOf(END);
+  return mergeBlock(existing, snippet, BEGIN, END);
+}
 
-  if (begin !== -1 && end !== -1 && end > begin) {
-    const before = existing.slice(0, begin);
-    const after = existing.slice(end + END.length);
-    // Trim a leading newline from `after` to avoid piling up blank lines.
+/** Replace an existing block between `begin`/`end` markers, or append it. */
+export function mergeBlock(
+  existing: string,
+  snippet: string,
+  begin: string,
+  end: string,
+): { text: string; action: "installed" | "updated" } {
+  const b = existing.indexOf(begin);
+  const e = existing.indexOf(end);
+
+  if (b !== -1 && e !== -1 && e > b) {
+    const before = existing.slice(0, b);
+    const after = existing.slice(e + end.length);
     const text = `${before}${snippet}${after.replace(/^\n/, "")}`;
     return { text, action: "updated" };
   }
