@@ -6,7 +6,7 @@
  * reports the tag it was built from.
  */
 
-export const VERSION = "0.3.0";
+export const VERSION = "0.4.0";
 
 /**
  * Compare two semver-ish strings.
