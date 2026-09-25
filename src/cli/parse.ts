@@ -44,6 +44,7 @@ export function parse(argv: string[]): ParsedCommand {
       "dry-run",
       "repo",
       "stack",
+      "check",
     ],
     string: ["base", "execute", "cd-file", "shell"],
     alias: {

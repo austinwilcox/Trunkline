@@ -33,6 +33,28 @@ deno task compile      # produces dist/tl
 Put `dist/tl` somewhere on your `PATH` (e.g. `~/.local/bin/tl`) to use it as
 `tl` everywhere.
 
+## Keeping it updated
+
+Once `tl` is on your `PATH`, update it in place with
+[`tl update`](commands/update):
+
+```bash
+tl update            # download + replace with the latest release
+tl update --check    # just check if a newer version exists
+```
+
+If `tl` lives in a root-owned directory (e.g. `/usr/local/bin`), run
+`sudo tl update`.
+
+## AI agent skill
+
+`tl` ships with an embedded skill file for AI coding agents. Print it with
+[`tl skill`](commands/skill):
+
+```bash
+tl skill > SKILL.md
+```
+
 ## Enable shell integration
 
 `tl switch` needs to change your shell's working directory, which a binary

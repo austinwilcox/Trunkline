@@ -11,6 +11,8 @@ import { runRemove } from "./cli/commands/remove.ts";
 import { runConfig } from "./cli/commands/config.ts";
 import { runHookCommand } from "./cli/commands/hook.ts";
 import { runInit } from "./cli/commands/init.ts";
+import { runUpdate } from "./cli/commands/update.ts";
+import { runSkill } from "./cli/commands/skill.ts";
 import { runPrune } from "./cli/commands/prune.ts";
 import { runStack } from "./cli/commands/stack.ts";
 import { type NavDirection, runNav } from "./cli/commands/nav.ts";
@@ -35,6 +37,8 @@ COMMANDS:
     hook        Run configured hooks on demand
     config      Manage config, approvals, shell integration
     init        Scaffold .config/tl.toml
+    update      Update tl to the latest release
+    skill       Print the bundled AI agent skill (SKILL.md)
 
   Stacks (see docs/STACKS.md):
     stack       Show/track/untrack stacked branches
@@ -74,6 +78,10 @@ OPTIONS:
             shell install [--shell bash|zsh|fish] [--print]
     init:
             --force         Overwrite an existing .config/tl.toml
+    update:
+            --check         Only report whether an update is available
+            --force         Reinstall even if already on the latest version
+        -y, --yes           Skip the confirmation prompt
 `;
 
 async function main(argv: string[]): Promise<number> {
@@ -171,6 +179,16 @@ async function dispatch(cmd: ReturnType<typeof parse>): Promise<number> {
         cd,
       });
     }
+
+    case "update":
+      return await runUpdate({
+        yes: Boolean(cmd.flags.yes),
+        force: Boolean(cmd.flags.force),
+        check: Boolean(cmd.flags.check),
+      });
+
+    case "skill":
+      return runSkill();
 
     case "stack":
       return await runStack({
