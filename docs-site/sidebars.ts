@@ -18,6 +18,8 @@ const sidebars: SidebarsConfig = {
         'commands/hook',
         'commands/config',
         'commands/init',
+        'commands/update',
+        'commands/skill',
         'commands/stack',
         'commands/navigate',
       ],
