@@ -10,11 +10,26 @@ Switch to a worktree, creating it if requested. Aliases: `tl sw`, `tl s`.
 
 ```bash
 tl switch <branch>                 # switch to an existing worktree
+tl switch <remote-branch>          # fetch a remote-only branch + make a worktree
 tl switch -c <branch>              # create branch + worktree, then switch
 tl switch -c <branch> --base main  # create from a specific base ref
 tl switch -c feat -x claude        # create, switch, then run a command in it
 tl switch -c feat --stack          # create on top of the current branch (stacked)
 ```
+
+## Remote branches
+
+If `<branch>` doesn't exist locally but a matching branch exists on a remote
+(e.g. `origin/<branch>`), `tl switch <branch>` **fetches it and creates a
+worktree that tracks the remote branch** — no `-c` needed. This is the common
+"check out a teammate's branch" case:
+
+```bash
+tl switch feature-from-a-colleague   # fetches origin/feature-from-a-colleague
+```
+
+`origin` is preferred when multiple remotes have the branch. If the branch
+exists neither locally nor on any remote, `tl switch` errors and suggests `-c`.
 
 ## Options
 

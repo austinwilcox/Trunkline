@@ -16,9 +16,12 @@
 
 import { detectMainBranch, getRepoInfo } from "../../git/repo.ts";
 import {
+  addTrackingWorktree,
   addWorktree,
   branchExists,
   currentBranch,
+  fetchRemoteBranch,
+  findRemoteBranch,
   findWorktreeByBranch,
 } from "../../git/worktree.ts";
 import { resolveWorktreePath } from "../../config/worktree_path.ts";
@@ -85,9 +88,18 @@ export async function runSwitch(opts: SwitchOptions): Promise<number> {
     const wantCreate = opts.create || opts.base !== undefined || opts.stack;
     const exists = await branchExists(repo.root, branch);
 
+    // Not local and not explicitly creating: if the branch exists on a remote,
+    // fetch it and create a worktree that tracks it (no -c needed).
+    let remoteRef: string | null = null;
     if (!exists && !wantCreate) {
-      error(`No worktree or branch '${branch}'. Use -c to create it.`);
-      return 1;
+      remoteRef = await findRemoteBranch(repo.root, branch);
+      if (!remoteRef) {
+        error(
+          `No worktree or branch '${branch}' (locally or on any remote). ` +
+            `Use -c to create it.`,
+        );
+        return 1;
+      }
     }
 
     const path = resolveWorktreePath({
@@ -95,18 +107,34 @@ export async function runSwitch(opts: SwitchOptions): Promise<number> {
       branch,
       template: config.settings["worktree-path"],
     });
-    info(`Creating worktree for ${branch} @ ${path}`);
-    await addWorktree(repo.root, branch, path, {
-      create: !exists,
-      base: stackBase,
-    });
+
+    if (remoteRef) {
+      // Refresh the remote-tracking ref, then check it out into a worktree.
+      const remote = remoteRef.slice(0, remoteRef.indexOf("/"));
+      info(`Fetching ${remoteRef} and creating worktree @ ${path}`);
+      await fetchRemoteBranch(repo.root, remote, branch);
+      await addTrackingWorktree(repo.root, branch, path, remoteRef);
+    } else {
+      info(`Creating worktree for ${branch} @ ${path}`);
+      await addWorktree(repo.root, branch, path, {
+        create: !exists,
+        base: stackBase,
+      });
+    }
+
     target = await findWorktreeByBranch(repo.root, branch);
     if (!target) {
       error(`Worktree creation reported success but none was found.`);
       return 1;
     }
     success(
-      `Created ${exists ? "worktree" : "branch and worktree"} ` +
+      `Created ${
+        remoteRef
+          ? `worktree tracking ${remoteRef}`
+          : exists
+          ? "worktree"
+          : "branch and worktree"
+      } ` +
         `${branch} @ ${target.path}`,
     );
   }
