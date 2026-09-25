@@ -102,6 +102,59 @@ export async function branchExists(
   return res.code === 0;
 }
 
+/**
+ * Find a remote-tracking branch matching `branch`, e.g. `origin/feat`.
+ *
+ * Checks `refs/remotes/*` /`branch`. If the primary remote (`origin`) has it,
+ * that's preferred; otherwise the first remote that has it is returned. Returns
+ * null if no remote has the branch.
+ */
+export async function findRemoteBranch(
+  cwd: string,
+  branch: string,
+): Promise<string | null> {
+  const res = await git(
+    [
+      "for-each-ref",
+      "--format=%(refname:short)",
+      `refs/remotes/*/${branch}`,
+    ],
+    { cwd, check: false },
+  );
+  if (res.code !== 0) return null;
+  const refs = res.stdout.split("\n").map((s) => s.trim()).filter((s) =>
+    s.length > 0 && s.endsWith(`/${branch}`)
+  );
+  if (refs.length === 0) return null;
+  // Prefer origin/<branch> when present.
+  return refs.find((r) => r === `origin/${branch}`) ?? refs[0];
+}
+
+/** Fetch a single branch from its remote so its remote-tracking ref is current. */
+export async function fetchRemoteBranch(
+  cwd: string,
+  remote: string,
+  branch: string,
+): Promise<void> {
+  await git(["fetch", remote, branch], { cwd, check: false });
+}
+
+/**
+ * Add a worktree for a new local `branch` that tracks `remoteRef`
+ * (e.g. `origin/feat`): `git worktree add --track -b <branch> <path> <remoteRef>`.
+ */
+export async function addTrackingWorktree(
+  cwd: string,
+  branch: string,
+  path: string,
+  remoteRef: string,
+): Promise<void> {
+  await git(
+    ["worktree", "add", "--track", "-b", branch, path, remoteRef],
+    { cwd },
+  );
+}
+
 export interface AddWorktreeOptions {
   /** Create a new branch (`git worktree add -b`). */
   create?: boolean;
