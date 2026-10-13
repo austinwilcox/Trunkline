@@ -48,6 +48,7 @@ const BRANCH_COMMANDS = new Set([
 const FLAGS: Record<string, string[]> = {
   switch: ["--create", "--base", "--execute", "--stack", "--no-hooks", "--yes"],
   remove: ["--force", "--keep-branch", "--no-hooks", "--yes"],
+  prune: ["--dry-run", "--yes", "--keep-branch", "--no-fetch", "--no-hooks"],
   list: ["--json", "--stack"],
   hook: ["--foreground", "--dry-run", "--yes"],
   config: ["--shell", "--print", "--repo"],

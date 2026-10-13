@@ -148,3 +148,44 @@ export async function getWorktreeStatus(
 
   return { dirty, vsMain, unpushed, commit };
 }
+
+/**
+ * Detect a branch that landed in `target` as a squash (or rebase) merge, where
+ * ancestry checks fail because main holds a *new* commit with the same change.
+ *
+ * Builds a throwaway commit whose tree is the branch tip and whose parent is
+ * the merge-base, i.e. the branch's whole change as one patch, then asks
+ * `git cherry` whether `target` already has a commit with the same patch-id.
+ * Nothing is written to any ref; the dangling commit is left for git's gc.
+ */
+export async function isSquashMerged(
+  cwd: string,
+  branch: string,
+  target: string,
+): Promise<boolean> {
+  const base = await git(["merge-base", target, branch], {
+    cwd,
+    check: false,
+  });
+  if (base.code !== 0) return false;
+
+  const squashed = await git(
+    [
+      "commit-tree",
+      `${branch}^{tree}`,
+      "-p",
+      base.stdout.trim(),
+      "-m",
+      "tl: squash probe",
+    ],
+    { cwd, check: false },
+  );
+  if (squashed.code !== 0) return false;
+
+  const cherry = await git(["cherry", target, squashed.stdout.trim()], {
+    cwd,
+    check: false,
+  });
+  // "-" marks a commit whose equivalent change already exists in `target`.
+  return cherry.code === 0 && cherry.stdout.trim().startsWith("-");
+}

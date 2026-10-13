@@ -121,3 +121,98 @@ Deno.test("prune never removes the primary worktree or main", async () => {
     cleanup();
   }
 });
+
+/** Add a worktree on `branch` with one commit per entry in `files`. */
+async function addWorkWorktree(
+  dir: string,
+  branch: string,
+  files: string[],
+): Promise<string> {
+  const path = await addMergedWorktree(dir, branch);
+  for (const f of files) {
+    await Deno.writeTextFile(`${path}/${f}`, `${f}\n`);
+    await git(["add", "."], { cwd: path });
+    await git(["commit", "-q", "-m", `add ${f}`], { cwd: path });
+  }
+  return path;
+}
+
+/** Squash-merge `branch` into the checked-out branch at `cwd`. */
+async function squashMerge(cwd: string, branch: string): Promise<void> {
+  await git(["merge", "-q", "--squash", branch], { cwd });
+  await git(["commit", "-q", "-m", `${branch} (#1)`], { cwd });
+}
+
+Deno.test("prune removes a squash-merged worktree and its branch", async () => {
+  const { dir, cleanup } = await makeRepo();
+  const paths: string[] = [];
+  try {
+    paths.push(await addWorkWorktree(dir, "feat", ["a.txt", "b.txt"]));
+    await squashMerge(dir, "feat");
+    // main moves on afterwards; the squash must still be recognized.
+    await Deno.writeTextFile(`${dir}/later.txt`, "later\n");
+    await git(["add", "."], { cwd: dir });
+    await git(["commit", "-q", "-m", "later"], { cwd: dir });
+
+    const code = await runPrune({ yes: true, cd: { file: null }, cwd: dir });
+    assertEquals(code, 0);
+    assertEquals((await listWorktrees(dir)).length, 1);
+    const branches = await git(["branch", "--list", "feat"], { cwd: dir });
+    assertEquals(branches.stdout.trim(), "");
+  } finally {
+    cleanupPaths(paths);
+    cleanup();
+  }
+});
+
+Deno.test("prune detects a squash merge done on origin (local main stale)", async () => {
+  const { dir, cleanup } = await makeRepo();
+  const remote = `${dir}.origin.git`;
+  const other = `${dir}.other`;
+  const paths: string[] = [remote, other];
+  try {
+    await git(["init", "-q", "--bare", "-b", "main", remote], { cwd: dir });
+    await git(["remote", "add", "origin", remote], { cwd: dir });
+    await git(["push", "-q", "-u", "origin", "main"], { cwd: dir });
+
+    paths.push(await addWorkWorktree(dir, "feat", ["a.txt"]));
+    await git(["push", "-q", "origin", "feat"], { cwd: dir });
+
+    // Simulate GitHub "Squash and merge" in a separate clone.
+    await git(["clone", "-q", remote, other], { cwd: dir });
+    await git(["config", "user.email", "t@e.com"], { cwd: other });
+    await git(["config", "user.name", "T"], { cwd: other });
+    await squashMerge(other, "origin/feat");
+    await git(["push", "-q", "origin", "main"], { cwd: other });
+    await git(["push", "-q", "origin", "--delete", "feat"], { cwd: other });
+
+    const code = await runPrune({ yes: true, cd: { file: null }, cwd: dir });
+    assertEquals(code, 0);
+    assertEquals((await listWorktrees(dir)).length, 1);
+  } finally {
+    cleanupPaths(paths);
+    cleanup();
+  }
+});
+
+Deno.test("prune keeps a branch with work beyond what was squashed", async () => {
+  const { dir, cleanup } = await makeRepo();
+  const paths: string[] = [];
+  try {
+    const p = await addWorkWorktree(dir, "feat", ["a.txt"]);
+    paths.push(p);
+    await squashMerge(dir, "feat");
+    // A follow-up commit on the branch that never landed.
+    await Deno.writeTextFile(`${p}/extra.txt`, "extra\n");
+    await git(["add", "."], { cwd: p });
+    await git(["commit", "-q", "-m", "extra"], { cwd: p });
+
+    const code = await runPrune({ yes: true, cd: { file: null }, cwd: dir });
+    assertEquals(code, 0);
+    const after = await listWorktrees(dir);
+    assertEquals(after.some((w) => w.branch === "feat"), true);
+  } finally {
+    cleanupPaths(paths);
+    cleanup();
+  }
+});

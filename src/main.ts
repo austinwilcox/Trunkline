@@ -65,6 +65,7 @@ OPTIONS:
     prune:
             --dry-run       List prunable worktrees without removing
             --keep-branch   Remove the worktrees but keep the branches
+            --no-fetch      Don't fetch origin first; use local refs only
             --no-hooks      Skip lifecycle hooks
         -y, --yes           Skip the confirmation prompt
     hook:
@@ -176,6 +177,7 @@ async function dispatch(cmd: ReturnType<typeof parse>): Promise<number> {
         yes: Boolean(cmd.flags.yes),
         keepBranch: Boolean(cmd.flags["keep-branch"]),
         noHooks: Boolean(cmd.flags["no-hooks"]),
+        noFetch: Boolean(cmd.flags["no-fetch"]),
         cd,
       });
     }
