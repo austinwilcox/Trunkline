@@ -41,8 +41,10 @@ tl switch -c <b> -x <cmd>    # create, switch, then run <cmd> in the worktree
 tl switch -c <b> --stack     # create on top of the current branch (tracked)
 
 tl remove [branch]           # remove worktree (+ branch); --keep-branch, --force
-tl prune                     # remove worktrees whose branch is merged + clean
-                             #   --dry-run, --yes, --keep-branch
+tl prune                     # remove worktrees whose branch is merged (incl.
+                             #   GitHub squash/rebase merges) + clean; fetches
+                             #   origin first. --dry-run, --yes, --keep-branch,
+                             #   --no-fetch
 
 tl init                      # scaffold .config/tl.toml
 tl hook show                 # show configured hooks

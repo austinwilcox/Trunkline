@@ -38,6 +38,7 @@ export function parse(argv: string[]): ParsedCommand {
       "force",
       "keep-branch",
       "no-hooks",
+      "no-fetch",
       "yes",
       "print",
       "foreground",
